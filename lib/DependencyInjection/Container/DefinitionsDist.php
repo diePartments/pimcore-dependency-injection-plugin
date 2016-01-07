@@ -11,7 +11,13 @@ namespace DependencyInjection\Container;
 
 class DefinitionsDist
 {
-    protected $path = PIMCORE_PLUGINS_PATH . '/DependencyInjection/container.php.dist';
+    /** @var string  */
+    protected $path;
+
+    public function __construct()
+    {
+        $this->path = PIMCORE_PLUGINS_PATH . '/DependencyInjection/container.php.dist';
+    }
 
     public function getPath()
     {

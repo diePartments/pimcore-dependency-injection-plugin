@@ -5,7 +5,13 @@ namespace DependencyInjection\Config;
 
 class PluginConfig
 {
-    protected $path = PIMCORE_WEBSITE_VAR . '/plugins/dependency-injection/config.xml';
+    /** @var string  */
+    protected $path;
+
+    public function __construct()
+    {
+        $this->path = PIMCORE_WEBSITE_VAR . '/plugins/dependency-injection/config.xml';
+    }
 
     public function getPath()
     {

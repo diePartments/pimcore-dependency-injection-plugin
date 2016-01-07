@@ -5,7 +5,12 @@ namespace DependencyInjection\Config;
 class PluginConfigDist
 {
     /** @var string  */
-    protected $path = PIMCORE_PLUGINS_PATH . '/DependencyInjection/config.xml.dist';
+    protected $path;
+
+    public function __construct()
+    {
+        $this->path = PIMCORE_PLUGINS_PATH . '/DependencyInjection/config.xml.dist';
+    }
 
     public function getPath()
     {
