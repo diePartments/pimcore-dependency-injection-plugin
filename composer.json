@@ -1,0 +1,20 @@
+{
+  "name": "diepartments-pimcore-plugin/dependency-injection",
+  "type": "pimcore-plugin",
+  "license": "BSD-3-Clause",
+  "description": "A Pimcore plugin enabling dependency injection",
+  "keywords": ["pimcore", "plugin", "dependency injection"],
+  "authors": [
+    {
+      "name": "Michael Rutzer",
+      "homepage": "http://www.diepartments.de"
+    }
+  ],
+  "require": {
+    "php": ">=5.4.0",
+    "pimcore/installer-plugin": ">=1",
+    "php-di/php-di": "^5.2.0",
+    "doctrine/cache": "^1.6",
+    "doctrine/annotations": "~1.2"
+  }
+}
