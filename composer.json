@@ -15,6 +15,7 @@
     "pimcore/installer-plugin": ">=1",
     "php-di/php-di": "^5.2.0",
     "doctrine/cache": "^1.6",
-    "doctrine/annotations": "~1.2"
+    "doctrine/annotations": "~1.2",
+    "ocramius/proxy-manager": "~1.0"
   }
 }

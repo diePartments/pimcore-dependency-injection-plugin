@@ -2,17 +2,17 @@
 
 namespace DependencyInjection;
 
-use DependencyInjection\Config\PluginConfig;
-use DependencyInjection\Config\PluginConfigDist;
-use DependencyInjection\Container\Definitions;
-use DependencyInjection\Container\DefinitionsDist;
+use DependencyInjection\Config\ConfigLocator;
+use DependencyInjection\Config\DefinitionsLocator;
+use DependencyInjection\Config\DistFileLocator;
+use DependencyInjection\Config\FileLocator;
+use DependencyInjection\Config\ProxyDirLocator;
 use DependencyInjection\Controller\Action\Helper\DI as DIControllerHelper;
 use DI\Cache\ArrayCache;
 use DI\ContainerBuilder;
 use Doctrine\Common\Cache\ApcuCache;
 use Doctrine\Common\Cache\Cache as CacheInterface;
 use Doctrine\Common\Cache\FilesystemCache;
-use Doctrine\Common\Cache\MemcacheCache;
 use Doctrine\Common\Cache\MemcachedCache;
 use Doctrine\Common\Cache\RedisCache;
 use Interop\Container\ContainerInterface;
@@ -24,15 +24,18 @@ class Plugin extends PluginLib\AbstractPlugin implements PluginLib\PluginInterfa
 {
     const CONTAINER_INIT_EVENT = 'dp.di.initContainer';
     const CONTAINER_REGISTRY_KEY = 'dp.di.container';
-    const CONFIG_CACHE_KEY = 'dp.di.config';
+    const CONFIG_CACHE_KEY = 'dp_di_config';
 
-    /** @var  Definitions */
+    const PROXY_DIR = 'generated';
+    const CONFIG_FILE = 'config.xml';
+
+    /** @var  DefinitionsLocator */
     private $containerDefinitions;
 
-    /** @var  Definitions */
+    /** @var  DefinitionsLocator */
     private $envContainerDefinitions;
 
-    /** @var  Definitions */
+    /** @var  DefinitionsLocator */
     private $parameters;
 
     /** @var  \Zend_Config */
@@ -46,10 +49,10 @@ class Plugin extends PluginLib\AbstractPlugin implements PluginLib\PluginInterfa
         parent::init();
 
         // init definitions
-        $this->containerDefinitions = new Definitions();
-        $this->parameters = new Definitions(Definitions::TYPE_PARAMETERS);
-        $this->envContainerDefinitions = new Definitions(
-            Definitions::TYPE_CONTAINER,
+        $this->containerDefinitions = new DefinitionsLocator();
+        $this->parameters = new DefinitionsLocator(DefinitionsLocator::PARAMETERS);
+        $this->envContainerDefinitions = new DefinitionsLocator(
+            DefinitionsLocator::CONTAINER,
             Config::getSystemConfig()->general->environment
         );
 
@@ -64,51 +67,77 @@ class Plugin extends PluginLib\AbstractPlugin implements PluginLib\PluginInterfa
             return true;
         }
 
-        $pluginConfigDist = new PluginConfigDist();
-        $pluginConfig = new PluginConfig();
+        $pluginConfigDist = new DistFileLocator(DistFileLocator::CONFIG_FILE);
+        $pluginConfig = new FileLocator(self::CONFIG_FILE);
 
-        $definitionsDist = new DefinitionsDist();
-        $containerDefinitions = new Definitions();
-        $params = new Definitions(Definitions::TYPE_PARAMETERS);
+        $definitionsDist = new DistFileLocator();
+        $containerDefinitions = new DefinitionsLocator();
+        $params = new DefinitionsLocator(DefinitionsLocator::PARAMETERS);
+
+        $proxyDir = new FileLocator(self::PROXY_DIR);
+
+        // do not create dir and configs to avoid overriding them
+        if (is_dir($containerDefinitions->getDir())) {
+            return true;
+        }
 
         // create plugin config, container and parameters definitions
-        if (copy($definitionsDist, $containerDefinitions) &&
+        if (@mkdir($containerDefinitions->getDir(), 0755) &&
+            @mkdir($proxyDir->getPath(), 0755) &&
+            copy($definitionsDist, $containerDefinitions) &&
             copy($definitionsDist, $params) &&
             copy($pluginConfigDist, $pluginConfig)) {
             return true;
         }
 
-        throw new \RuntimeException('Unable to create config files!');
+        throw new \RuntimeException('Unable to create config files and directories!');
     }
 
     public static function uninstall ()
     {
+        $definitions = new DefinitionsLocator();
+
+        if (is_dir($definitions->getDir())) {
+            $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($definitions->getDir()));
+
+            foreach ($files as $file) {
+                if ($file->isDir()) {
+                    rmdir($file->getRealPath());
+                } else {
+                    unlink($file->getRealpath());
+                }
+            }
+
+            rmdir($definitions->getDir());
+        }
+
         return true;
     }
 
     public static function isInstalled ()
     {
-        return file_exists((string) new Definitions());
+        $definitions = new DefinitionsLocator();
+        return is_dir($definitions->getDir());
     }
 
     public function initContainer()
     {
+        $config = $this->getConfig();
+
         $builder = new ContainerBuilder();
         $builder->useAnnotations(true);
 
-        // add default definitions
-        $builder->addDefinitions($this->containerDefinitions->getPath());
-
-        // add env specific definitions if exists
-        if (file_exists($this->envContainerDefinitions->getPath())) {
-            $builder->addDefinitions($this->envContainerDefinitions->getPath());
+        // add definitions and create definition cache if definitions enabled
+        if ($config->get('useDefinitionFiles', true)) {
+            $this->addDefinitions($builder);
+            $builder->setDefinitionCache($this->createDefinitionCache($config->get('cache')));
         }
 
-        // add local parameters
-        $builder->addDefinitions($this->parameters->getPath());
-
-        // create and set definitions cache
-        $builder->setDefinitionCache($this->createDefinitionCache());
+        // use proxy cache if enabled
+        if ($writeProxiesToFile = $config->get('cacheProxies', true)) {
+            $proxyDir = new FileLocator(self::PROXY_DIR);
+            $builder->writeProxiesToFile($writeProxiesToFile, $proxyDir->getDir());
+        }
 
         // dispatch event to enable other plugins to extend the container
         \Pimcore::getEventManager()->trigger(self::CONTAINER_INIT_EVENT, $builder);
@@ -129,15 +158,31 @@ class Plugin extends PluginLib\AbstractPlugin implements PluginLib\PluginInterfa
     }
 
     /**
+     * @param ContainerBuilder $builder
+     */
+    protected function addDefinitions(ContainerBuilder $builder)
+    {
+        // add default definitions
+        $builder->addDefinitions($this->containerDefinitions->getPath());
+
+        // add env specific definitions if exists
+        if (file_exists($this->envContainerDefinitions->getPath())) {
+            $builder->addDefinitions($this->envContainerDefinitions->getPath());
+        }
+
+        // add local parameters
+        $builder->addDefinitions($this->parameters->getPath());
+    }
+
+    /**
      * @return CacheInterface
      */
-    protected function createDefinitionCache()
+    protected function createDefinitionCache($config)
     {
         /** @var CacheInterface $cacheDriver */
         $cacheDriver = null;
 
         if ('production' == Config::getSystemConfig()->general->environment) {
-            $config = $this->getConfig()->get('cache');
             $cacheOptions = $config->options;
 
             switch($config->type) {
@@ -191,7 +236,7 @@ class Plugin extends PluginLib\AbstractPlugin implements PluginLib\PluginInterfa
         $config = Cache::load(self::CONFIG_CACHE_KEY);
 
         if (!$config) {
-            $config = new \Zend_Config_Xml((string) new PluginConfig());
+            $config = new \Zend_Config_Xml((string) new FileLocator(self::CONFIG_FILE), null, true);
             Cache::save($config, self::CONFIG_CACHE_KEY);
         }
 
