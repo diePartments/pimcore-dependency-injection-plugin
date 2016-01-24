@@ -33,4 +33,15 @@ class DI extends \Zend_Controller_Action_Helper_Abstract
     {
         return $this->container;
     }
+
+    /**
+     * Get a entry from container by its id
+     *
+     * @param {string} $id - Identifier of the entry to look for.
+     * @return mixed
+     */
+    public function get($id)
+    {
+        return $this->container->get($id);
+    }
 }
