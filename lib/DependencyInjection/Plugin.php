@@ -136,7 +136,7 @@ class Plugin extends PluginLib\AbstractPlugin implements PluginLib\PluginInterfa
         // use proxy cache if enabled
         if ($writeProxiesToFile = $config->get('cacheProxies', true)) {
             $proxyDir = new FileLocator(self::PROXY_DIR);
-            $builder->writeProxiesToFile($writeProxiesToFile, $proxyDir->getDir());
+            $builder->writeProxiesToFile($writeProxiesToFile, $proxyDir->getPath());
         }
 
         // dispatch event to enable other plugins to extend the container
