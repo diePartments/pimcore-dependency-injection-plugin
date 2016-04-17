@@ -144,6 +144,21 @@ $container = \Zend_Registry::get(DependencyInjection\Plugin::CONTAINER_REGISTRY_
 
 ```
 
+### Event Hook
+
+You can access the container after its initialization utilizing Pimcores Event System
+
+```php
+\Pimcore::getEventManager()->attach(\DependencyInjection\Plugin::CONTAINER_INITIALIZED_EVENT, function(\Zend_EventManager_Event $e) {
+    
+    /** @var Interop\Container\ContainerInterface $container */    
+    $container = $e->getTarget(); 
+      
+    // access your defined services
+    $someService = $container->get('service.key');
+});
+```
+
 ## Extending the Container
 
 You can extend the container, e.g. to add a additional definitions.php file, using Pimcores Event System.

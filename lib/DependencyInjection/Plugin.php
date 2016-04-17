@@ -17,12 +17,12 @@ use Doctrine\Common\Cache\MemcachedCache;
 use Doctrine\Common\Cache\RedisCache;
 use Interop\Container\ContainerInterface;
 use Pimcore\API\Plugin as PluginLib;
-use Pimcore\Config;
-use Pimcore\Model\Cache;
+use Pimcore\Cache;
 
 class Plugin extends PluginLib\AbstractPlugin implements PluginLib\PluginInterface
 {
     const CONTAINER_INIT_EVENT = 'dp.di.initContainer';
+    const CONTAINER_INITIALIZED_EVENT = 'dp.di.containerInitialized';
     const CONTAINER_REGISTRY_KEY = 'dp.di.container';
     const CONFIG_CACHE_KEY = 'dp_di_config';
 
@@ -44,16 +44,21 @@ class Plugin extends PluginLib\AbstractPlugin implements PluginLib\PluginInterfa
     /** @var  ContainerInterface */
     protected $container;
 
+    /** @var  string */
+    private $env;
+
     public function init()
     {
         parent::init();
+
+        $this->env = getenv('PIMCORE_ENVIRONMENT') ?: (getenv('REDIRECT_PIMCORE_ENVIRONMENT') ?: '');
 
         // init definitions
         $this->containerDefinitions = new DefinitionsLocator();
         $this->parameters = new DefinitionsLocator(DefinitionsLocator::PARAMETERS);
         $this->envContainerDefinitions = new DefinitionsLocator(
             DefinitionsLocator::CONTAINER,
-            Config::getSystemConfig()->general->environment
+            $this->env
         );
 
         // register events
@@ -149,6 +154,9 @@ class Plugin extends PluginLib\AbstractPlugin implements PluginLib\PluginInterfa
 
         // add container to registry
         \Zend_Registry::set(self::CONTAINER_REGISTRY_KEY, $this->container);
+
+        // dispatch event to inform others that the container is ready
+        \Pimcore::getEventManager()->trigger(self::CONTAINER_INITIALIZED_EVENT, $this->container);
     }
 
     public function initController(\Zend_EventManager_Event $e)
@@ -182,7 +190,7 @@ class Plugin extends PluginLib\AbstractPlugin implements PluginLib\PluginInterfa
         /** @var CacheInterface $cacheDriver */
         $cacheDriver = null;
 
-        if ('production' == Config::getSystemConfig()->general->environment) {
+        if ('production' == $this->env) {
             $cacheOptions = $config->options;
 
             switch($config->type) {
