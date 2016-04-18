@@ -46,7 +46,7 @@ Put your service configurations in ```container.php``` and your parameters in ``
 You can also create environment specific definitions, to override defaults. Simply create a ```container.ENV.php ``` file and put your env specific services configuration in it.
 *Replace ```ENV``` by the environment you want to create specific config for, e.g. ```development```*
 
-The Pimcore System environment is used to load the correct config. It can be set in ``` Settings -> System -> Debug -> Environment ```
+The [Pimcore System environment](https://www.pimcore.org/wiki/pages/viewpage.action?pageId=20217900).
 
 ### Example
 
@@ -242,5 +242,5 @@ You have to provide them in the ```options``` part of the cache config.
 </zend-config>
 ```
 
-The Cache is only activated for ```production``` environment, which can be enabled in the system config.
+The Cache is only activated for ```production``` environment.
 
