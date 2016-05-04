@@ -63,6 +63,7 @@ class Plugin extends PluginLib\AbstractPlugin implements PluginLib\PluginInterfa
 
         // register events
         \Pimcore::getEventManager()->attach('system.startup', [$this, 'initContainer']);
+        \Pimcore::getEventManager()->attach('system.console.init', [$this, 'initContainer']);
         //\Pimcore::getEventManager()->attach('frontend.controller.preInit', [$this, 'initController']);
     }
 
