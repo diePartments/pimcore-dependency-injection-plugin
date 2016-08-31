@@ -64,6 +64,8 @@ class Plugin extends PluginLib\AbstractPlugin implements PluginLib\PluginInterfa
         // register events
         \Pimcore::getEventManager()->attach('system.startup', [$this, 'initContainer']);
         \Pimcore::getEventManager()->attach('system.console.init', [$this, 'initContainer']);
+        \Pimcore::getEventManager()->attach('system.cache.clear', [$this, 'clearProxyCache']);
+        \Pimcore::getEventManager()->attach('system.cache.clearTemporaryFiles', [$this, 'clearProxyCache']);
         //\Pimcore::getEventManager()->attach('frontend.controller.preInit', [$this, 'initController']);
     }
 
@@ -164,6 +166,17 @@ class Plugin extends PluginLib\AbstractPlugin implements PluginLib\PluginInterfa
     {
         $controller = $e->getTarget();
         $this->container->injectOn($controller);
+    }
+
+    /**
+     * Clear genereated Proxy classes
+     */
+    public function clearProxyCache()
+    {
+        $proxyDir = new FileLocator(self::PROXY_DIR);
+        foreach (new \DirectoryIterator($proxyDir->getPath()) as $fielInfo) {
+            unlink($fielInfo->getPathname());
+        }
     }
 
     /**
